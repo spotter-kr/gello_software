@@ -1,0 +1,11 @@
+services:
+  gello:
+    container_name: gello
+    image: gello:latest
+    build: .
+    privileged: true
+    tty: true
+    volumes:
+      - ../:/gello
+      - /dev:/dev
+

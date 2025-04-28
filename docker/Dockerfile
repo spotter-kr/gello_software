@@ -1,18 +1,17 @@
-FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
+FROM osrf/ros:humble-desktop-full-jammy
+
+ARG ROS_DISTRO=humble
 
 WORKDIR /gello
 
-# Set environment variables first (less likely to change)
-ENV PYTHONPATH=/gello:/gello/third_party/oculus_reader/
-
 # Group apt updates and installs together
 RUN apt update && apt install -y \
+    tmux \
     libhidapi-dev \
     python3-pip \
     android-tools-adb \
     libegl1-mesa-dev && \
     rm -rf /var/lib/apt/lists/* 
-
 
 # Python alias setup
 RUN echo "alias python=python3" >> ~/.bashrc
