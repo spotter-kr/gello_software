@@ -5,7 +5,27 @@ services:
     build: .
     privileged: true
     tty: true
+    networks: 
+      - gello
     volumes:
       - ../:/gello
       - /dev:/dev
+    environment:
+      QT_X11_NO_MITSHM: 1
+      DISPLAY: novnc:0.0
+  novnc:
+    container_name: novnc
+    image: theasp/novnc:latest
+    environment:
+      DISPLAY_WIDTH: 1920
+      DISPLAY_HEIGHT: 1080
+      RUN_XTERM: no
+    networks: 
+      - gello
+    ports: 
+      - "6080:8080"
+
+networks:
+  gello:
+    external: true
 
