@@ -29,9 +29,9 @@ outputs/*
 MUJOCO_LOG.TXT
 
 # ROS
-./gello_ros/build
-./gello_ros/install
-./gello_ros/log
+gello_ros/build
+gello_ros/install
+gello_ros/log
 
 # 3rd-party ROS repositories
-./gello_ros/src/third_party
+gello_ros/src/third_party
