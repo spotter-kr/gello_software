@@ -2,17 +2,23 @@ services:
   gello:
     container_name: gello
     image: gello:latest
-    build: .
+    build:
+      args: 
+        USER: ${USER}
+        UID: ${UID}
+    user: ${USER}
     privileged: true
     tty: true
     networks: 
       - gello
     volumes:
-      - ../:/gello
+      - ../:/home/${USER}/workspace
       - /dev:/dev
+    working_dir: /home/${USER}/workspace/gello_ros
     environment:
       QT_X11_NO_MITSHM: 1
       DISPLAY: novnc:0.0
+
   novnc:
     container_name: novnc
     image: theasp/novnc:latest
@@ -28,4 +34,3 @@ services:
 networks:
   gello:
     external: true
-
