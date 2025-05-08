@@ -278,6 +278,14 @@ class TMRobot(Node):
         # self.futures.append(self.client_script.call_async(req))
         self.client_script.call(req)
 
+    def _pos_delta_cap(self, pos_command, period):
+        target = np.array(pos_command.target)
+        state = np.rad2deg(np.array(self._joint_pos))
+        max_delta = period * DEG_PER_MS
+        delta = np.clip(target - state, -max_delta, max_delta)
+        capped_target = (state + delta).tolist()
+        return Position(command_type=CommandType.POS, target=capped_target)
+
     def num_dofs(self) -> int:
         """Get the number of joints of the robot.
 
