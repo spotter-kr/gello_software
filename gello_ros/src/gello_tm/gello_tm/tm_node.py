@@ -7,6 +7,8 @@ from threading import Thread
 from queue import Queue
 from time import sleep
 from enum import Enum
+from dataclasses import dataclass
+from copy import deepcopy
 
 import rclpy
 from rclpy.node import Node
@@ -17,11 +19,7 @@ from std_msgs.msg import String
 from tm_msgs.srv import SendScript, SetIO, SetEvent
 from tm_msgs.msg import FeedbackState
 from gello_msgs.msg import GelloState
-
-SPEED_100P = 100
-ACCURACY_TRUE = 'true'
-ACC_200 = 200
-BLEND_0P = 0
+from gello_tm.tm_command import *
 
 DO_STATE_ON = 1.0
 DO_STATE_OFF = 0.0
@@ -30,59 +28,11 @@ GRIPPER_OPEN = 1.0
 GRIPPER_CLOSE = 0.0
 GRIPPER_NONE = -1.0
 
-START_JOINTS = [0,0,90,0,90,0,0]
+START_JOINTS = [0.0,0.0,90.0,0.0,90.0,0.0,0.0]
 
-class CommandType(Enum):
-    SCRIPT = 0
-    OPEN_GRIPPER = 1
-    CLOSE_GRIPPER = 2
-
-class Motion(Enum):
-    """The enum class for motion type in TMScript.
-    """
-
-    PTP = "PTP"
-    LINE = "Line"
-
-
-class Format(Enum):
-    """The enum class for motion target parameter in TMScript.
-    'PP' stands for percentage format of speed and blend parameter.
-    """
-
-    J = 'JPP'   # Joint angles
-    C = 'CPP'   # Cartesian coordinates
-
-def build_enable_position_tmscript(mode='J', acc=1000, gain=3, protection=100):
-    return f'Position(true,"{mode}",{acc},{gain},{protection})'
-
-def build_disable_position_tmscript():
-    return f'Position(false)'
-
-def build_position_tmscript(target: List):
-    if len(target) < 6:
-        return ''
-    return f'Position({target[0]:.2f},{target[1]:.2f},{target[2]:.2f},{target[3]:.2f},{target[4]:.2f},{target[5]:.2f})'
-    
-def build_motion_tmscript(action_dict: dict):
-    target = action_dict.get('target', [])
-    if len(target) != 6:
-        return ''
-    action_type = action_dict.get('action', 'ptp')
-    if action_type not in ['ptp', 'line']:
-        return ''
-    motion = Motion.PTP if action_type == 'ptp' else Motion.LINE
-    format = action_dict.get('format', '')
-    if format not in ['j', 'c']:
-        return ''
-    format = Format.J if action_dict['format'] == 'j' else Format.C
-    speed = action_dict.get('speed', SPEED_100P)
-    accel = action_dict.get('accel', ACC_200)
-    blend = action_dict.get('blend', BLEND_0P)
-    accuracy = action_dict.get('accuracy', ACCURACY_TRUE)
-    return f'{motion.value}("{format.value}",{target[0]:.2f},{target[1]:.2f},{target[2]:.2f},{target[3]:.2f},{target[4]:.2f},{target[5]:.2f},{speed},{accel},{blend},{accuracy})'
-
-
+PROTECTION_20MS = 20
+PROTECTION_50MS = 50
+DEG_PER_MS = 0.05
     
 class TMRobot(Node):
     """The ROS node that sends TMscript to the TM robot in response to action commands.
@@ -106,7 +56,7 @@ class TMRobot(Node):
         self._gripper = gripper
         self._gripper_state = GRIPPER_NONE
         self._gripper_goal = GRIPPER_NONE
-        self._joint_pos = None
+        self._joint_pos = None # rad
         self._joint_vel = None
         self._continuous_mode = False
 
@@ -126,7 +76,7 @@ class TMRobot(Node):
         while not self.client_event.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('set_event service not available, waiting again...')
 
-        self.create_subscription(String, '/tm_command', self._tm_command_callback, 10)
+        # self.create_subscription(String, '/tm_command', self._tm_command_callback, 10)
         self.create_subscription(GelloState, '/gello_state', self._gello_state_callback, 10)
         
         # Subscribe feedback topic from the TM driver
@@ -142,22 +92,22 @@ class TMRobot(Node):
         self.get_logger().info('Executor Node Started. Waiting for action commands ...')
 
     def setup_robot(self):
-        home_pose_script = build_motion_tmscript({
-            "action": "ptp",
-            "format": "j",
-            "target": START_JOINTS[:6]
-        })
-        self._enqueue_script_request(home_pose_script)
+        self._enqueue_command(Motion(
+            command_type = CommandType.MOTION,
+            motion_type=MotionType.PTP,
+            motion_format=MotionFormat.J,
+            target=START_JOINTS[:6]
+        ))
         self.set_continuous_mode(True)
 
     def reset_robot(self):
         self.set_continuous_mode(False)
-        home_pose_script = build_motion_tmscript({
-            "action": "ptp",
-            "format": "j",
-            "target": START_JOINTS[:6]
-        })
-        self._enqueue_script_request(home_pose_script)
+        self._enqueue_command(Motion(
+            command_type = CommandType.MOTION,
+            motion_type=MotionType.PTP,
+            motion_format=MotionFormat.J,
+            target=START_JOINTS[:6]
+        ))
 
     def spin(self):
         while rclpy.ok():
@@ -171,43 +121,50 @@ class TMRobot(Node):
                     incomplete_futures.append(f)
             self.futures = incomplete_futures
         
-    def _tm_command_callback(self, msg):
-        self.get_logger().info(f'Received action: {msg.data}')
+    # def _tm_command_callback(self, msg):
+    #     self.get_logger().info(f'Received action: {msg.data}')
 
-        # Commands sent by the operator
-        if msg.data == 'open':
-            self._open_gripper()
-            return
-        if msg.data == 'close':
-            self._close_gripper()
-            return
+    #     # Commands sent by the operator
+    #     if msg.data == 'open':
+    #         self._open_gripper()
+    #         return
+    #     if msg.data == 'close':
+    #         self._close_gripper()
+    #         return
         
-        # Commands sent by task planner
-        action_dict = json.loads(msg.data
-                                 .replace("'", "\"")
-                                 .replace("True", "true")
-                                 .replace("False", "false"))
+    #     # Commands sent by task planner
+    #     action_dict = json.loads(msg.data
+    #                              .replace("'", "\"")
+    #                              .replace("True", "true")
+    #                              .replace("False", "false"))
 
-        action_type = action_dict['action']
+    #     action_type = action_dict['action']
 
-        tmscript = ''
-        if action_type in ['ptp', 'line']:
-            tmscript = build_motion_tmscript(action_dict)
-        elif action_type == 'script':
-            tmscript = action_dict.get('script', '')
-        elif action_type == 'position':
-            tmscript = build_position_tmscript(action_dict)
-        else:
-            self.get_logger().info(f'Unknown action type: {action_type}')
-        self._enqueue_script_request(tmscript)
+    #     command = None
+    #     if action_type in ['ptp', 'line']:
+    #         command = build_motion_tmscript(action_dict)
+    #     elif action_type == 'script':
+    #         tmscript = action_dict.get('script', '')
+    #     elif action_type == 'position':
+    #         tmscript = build_position_tmscript(action_dict)
+    #     else:
+    #         self.get_logger().info(f'Unknown action type: {action_type}')
+        
+    #     self._enqueue_command(command)
 
     def _gello_state_callback(self, msg):
         if not self.continuous_mode_enabled():
             return
         if len(msg.joints) < 6:
             return
-        self._enqueue_script_request(build_position_tmscript(msg.joints))
-        self._enqueue_gripper_request(msg.gripper)
+        self._enqueue_command(Position(
+            command_type=CommandType.POS,
+            target=msg.joints,
+        ))
+        self._enqueue_command(Gripper(
+            command_type=CommandType.GRIPPER,
+            target=msg.gripper,
+        ))
 
     ### Robot states ###
     def _feedback_states_callback(self, msg):
@@ -215,8 +172,8 @@ class TMRobot(Node):
         self._update_ee_state(msg)
 
     def _update_robot_state(self, msg):
-        self._joint_pos = msg.joint_pos
-        self._joint_vel = msg.joint_vel
+        self._joint_pos = deepcopy(msg.joint_pos)
+        self._joint_vel = deepcopy(msg.joint_vel)
     
     def _update_ee_state(self, msg):
         ee_dio = msg.ee_digital_input
@@ -235,47 +192,50 @@ class TMRobot(Node):
                 self._gripper_goal = GRIPPER_NONE
         else:
             self._gripper_state = GRIPPER_NONE
-
-    def _enqueue_script_request(self, cmd):
-        if cmd is not None and cmd != '':
-            self._command_queue.put((CommandType.SCRIPT, cmd))
     
-    def _enqueue_gripper_request(self, goal):
-        if goal < 0 or goal > 1:
-            return
-        if goal > 0.6:
-            if self._gripper_state == GRIPPER_CLOSE:
-                return        
-            if self._gripper_goal == GRIPPER_CLOSE:
-                return
-            self._command_queue.put((CommandType.CLOSE_GRIPPER, None))
-
-        if goal < 0.4 :
-            if self._gripper_state == GRIPPER_OPEN:
-                return        
-            if self._gripper_goal == GRIPPER_OPEN:
-                return
-            self._command_queue.put((CommandType.OPEN_GRIPPER, None))
+    def _enqueue_command(self, command):
+        if command:
+            self._command_queue.put(command)
     
     def _execute_command(self):
         """
         Sends commands in the commandQueue in order.
         """
         while True:
-            type_command, value = self._command_queue.get(block=True, timeout=None)
-
-            if type_command == CommandType.SCRIPT:
+            command = self._command_queue.get(block=True, timeout=None)
+            
+            if command.command_type == CommandType.MOTION:
                 req = SendScript.Request()
                 req.id = "demo"
-                req.script = value
-                self.client_script.call(req)    
-            elif type_command == CommandType.OPEN_GRIPPER:
-                self._open_gripper()
-            elif type_command == CommandType.CLOSE_GRIPPER:
-                self._close_gripper()
+                req.script = command.toscript()
+                self.client_script.call(req)
+            elif command.command_type == CommandType.POS:
+                if command.enable is None:
+                    command = self._pos_delta_cap(command, PROTECTION_20MS)
+                req = SendScript.Request()
+                req.id = "demo"
+                req.script = command.toscript()
+                self.client_script.call(req)
+                # self.get_logger().info(command.toscript())    
+            elif command.command_type == CommandType.GRIPPER:
+                if command.target < 0 or command.target > 1:
+                    continue
+                if command.target > 0.6:
+                    if self._gripper_state == GRIPPER_CLOSE:
+                        continue        
+                    if self._gripper_goal == GRIPPER_CLOSE:
+                        continue
+                    self._close_gripper()
+
+                if command.target < 0.4 :
+                    if self._gripper_state == GRIPPER_OPEN:
+                        continue        
+                    if self._gripper_goal == GRIPPER_OPEN:
+                        continue
+                    self._open_gripper()
             else:
-                self.get_logger().info(f"Unknown command type: {type_command}")
-                pass
+                # Unreachable
+                continue
 
     ### TM srv call ###
     def _close_gripper(self):
@@ -355,11 +315,16 @@ class TMRobot(Node):
         """
 
         robot_joints: List = np.rad2deg(joint_state[:6]).tolist()
-        tmscript = build_position_tmscript(robot_joints)
-        self._enqueue_script_request(tmscript)
+        self._enqueue_command(Position(
+            command_type=CommandType.POS,
+            target=robot_joints,
+        ))
         if self._gripper:
             gripper_pos = joint_state[-1]
-            self._manip_gripper(gripper_pos)
+            self._enqueue_command(Gripper(
+                command_type=CommandType.GRIPPER,
+                target=gripper_pos,
+            ))
 
     def continuous_mode_enabled(self) -> bool:
         """Check if the robot is in continuous control mode.
@@ -378,10 +343,17 @@ class TMRobot(Node):
         if enable and not self._continuous_mode:
             print('Enable continuous control')
             self._continuous_mode = True
-            self._enqueue_script_request(build_enable_position_tmscript())
+            self._enqueue_command(Position(
+                command_type=CommandType.POS,
+                enable=True,
+                protection=PROTECTION_20MS,
+            ))
         elif not enable and self._continuous_mode:
             self._continuous_mode = False
-            self._enqueue_script_request(build_disable_position_tmscript())
+            self._enqueue_command(Position(
+                command_type=CommandType.POS,
+                enable=False,
+            ))
 
     def get_observations(self) -> Dict[str, np.ndarray]:
         joints = self.get_joint_state()
