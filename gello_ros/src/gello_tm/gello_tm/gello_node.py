@@ -8,14 +8,12 @@ import rclpy
 from rclpy.node import Node
 from gello_msgs.msg import GelloState
 
-START_JOINTS = [0,0,np.pi/2,0,np.pi/2,0,0]
-
 @dataclass
 class Args:
     wrist_camera_port: int = 5000
     base_camera_port: int = 5001
-    hz: int = 10
-    start_joints: Optional[Tuple[float, ...]] = None
+    hz: int = 50
+    start_joints: Tuple[float, ...] = (0,0,np.pi/2,0,np.pi/2,0,0)
 
     gello_port: str = '/dev/ttyUSB0'
     verbose: bool = False
@@ -25,7 +23,11 @@ class GelloNode(Node):
         super().__init__('gello_node')
 
         gello_port = args.gello_port
-        self._agent = GelloAgent(port=gello_port, start_joints=np.array(START_JOINTS))
+        self._agent = GelloAgent(
+            port=gello_port,
+            type='tm', 
+            start_joints=np.array(args.start_joints)
+        )
     
         self._tm_publisher = self.create_publisher(GelloState, '/gello_state', 10)
         timer_period = 1 / args.hz
