@@ -20,6 +20,7 @@ class CommandType(Enum):
     POS = 0
     MOTION = 1
     GRIPPER = 2
+    SCRIPT = 3
 
 @dataclass
 class Command(ABC):
@@ -65,3 +66,10 @@ class Motion(Command):
 class Gripper(Command):
     command_type = CommandType.GRIPPER
     target: float = 0    
+
+@dataclass
+class Script(Command):
+    command_type = CommandType.SCRIPT
+    script: str = ''
+    def toscript(self) -> str:
+        return self.script

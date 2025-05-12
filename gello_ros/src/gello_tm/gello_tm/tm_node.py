@@ -76,7 +76,7 @@ class TMRobot(Node):
         while not self.client_event.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('set_event service not available, waiting again...')
 
-        # self.create_subscription(String, '/tm_command', self._tm_command_callback, 10)
+        self.create_subscription(String, '/tm_command', self._tm_command_callback, 10)
         self.create_subscription(GelloState, '/gello_state', self._gello_state_callback, 10)
         
         # Subscribe feedback topic from the TM driver
@@ -121,36 +121,37 @@ class TMRobot(Node):
                     incomplete_futures.append(f)
             self.futures = incomplete_futures
         
-    # def _tm_command_callback(self, msg):
-    #     self.get_logger().info(f'Received action: {msg.data}')
+    def _tm_command_callback(self, msg):
+        self.get_logger().info(f'Received command: {msg.data}')
 
-    #     # Commands sent by the operator
-    #     if msg.data == 'open':
-    #         self._open_gripper()
-    #         return
-    #     if msg.data == 'close':
-    #         self._close_gripper()
-    #         return
+        # Commands sent by the operator
+        # if msg.data == 'open':
+        #     self._open_gripper()
+        #     return
+        # if msg.data == 'close':
+        #     self._close_gripper()
+        #     return
         
-    #     # Commands sent by task planner
-    #     action_dict = json.loads(msg.data
-    #                              .replace("'", "\"")
-    #                              .replace("True", "true")
-    #                              .replace("False", "false"))
+        # # Commands sent by task planner
+        # action_dict = json.loads(msg.data
+        #                          .replace("'", "\"")
+        #                          .replace("True", "true")
+        #                          .replace("False", "false"))
 
-    #     action_type = action_dict['action']
+        # action_type = action_dict['action']
 
-    #     command = None
-    #     if action_type in ['ptp', 'line']:
-    #         command = build_motion_tmscript(action_dict)
-    #     elif action_type == 'script':
-    #         tmscript = action_dict.get('script', '')
-    #     elif action_type == 'position':
-    #         tmscript = build_position_tmscript(action_dict)
-    #     else:
-    #         self.get_logger().info(f'Unknown action type: {action_type}')
+        # command = None
+        # if action_type in ['ptp', 'line']:
+        #     command = build_motion_tmscript(action_dict)
+        # elif action_type == 'script':
+        #     tmscript = action_dict.get('script', '')
+        # elif action_type == 'position':
+        #     tmscript = build_position_tmscript(action_dict)
+        # else:
+        #     self.get_logger().info(f'Unknown action type: {action_type}')
         
-    #     self._enqueue_command(command)
+        if msg.data == 'position':
+            self.set_continuous_mode(not self._continuous_mode)
 
     def _gello_state_callback(self, msg):
         if not self.continuous_mode_enabled():
@@ -233,6 +234,13 @@ class TMRobot(Node):
                     if self._gripper_goal == GRIPPER_OPEN:
                         continue
                     self._open_gripper()
+            elif command.command_type == CommandType.SCRIPT:
+                if command.script is None or command.script == '':
+                    continue
+                req = SendScript.Request()
+                req.id = "demo"
+                req.script = command.script
+                self.client_script.call(req)
             else:
                 # Unreachable
                 continue
