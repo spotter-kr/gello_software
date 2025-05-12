@@ -32,7 +32,8 @@ START_JOINTS = [0.0,0.0,90.0,0.0,90.0,0.0,0.0]
 
 PROTECTION_20MS = 20
 PROTECTION_50MS = 50
-DEG_PER_MS = 0.05
+PROTECTION_100MS = 100
+DEG_PER_MS = 0.1
     
 class TMRobot(Node):
     """The ROS node that sends TMscript to the TM robot in response to action commands.
@@ -362,7 +363,7 @@ class TMRobot(Node):
             self._enqueue_command(Position(
                 command_type=CommandType.POS,
                 enable=True,
-                protection=PROTECTION_20MS,
+                protection=PROTECTION_20MS*3,
             ))
         elif not enable and self._continuous_mode:
             self._continuous_mode = False
