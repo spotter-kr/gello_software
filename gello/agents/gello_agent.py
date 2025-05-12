@@ -1,6 +1,6 @@
 import os
-from dataclasses import dataclass
-from typing import Dict, Optional, Sequence, Tuple
+from dataclasses import dataclass, field
+from typing import Dict, Optional, List, Tuple
 
 import numpy as np
 
@@ -10,13 +10,13 @@ from gello.robots.dynamixel import DynamixelRobot
 
 @dataclass
 class DynamixelRobotConfig:
-    joint_ids: Sequence[int]
+    joint_ids: List[int]
     """The joint ids of GELLO (not including the gripper). Usually (1, 2, 3 ...)."""
 
-    joint_offsets: Sequence[float]
+    joint_offsets: List[float]
     """The joint offsets of GELLO. There needs to be a joint offset for each joint_id and should be a multiple of pi/2."""
 
-    joint_signs: Sequence[int]
+    joint_signs: List[int]
     """The joint signs of GELLO. There needs to be a joint sign for each joint_id and should be either 1 or -1.
 
     This will be different for each arm design. Refernce the examples below for the correct signs for your robot.
@@ -47,23 +47,23 @@ class DynamixelRobotConfig:
 
 @dataclass
 class TmRobotConfig(DynamixelRobotConfig):
-    joint_ids: Sequence[int] = [11, 12, 13, 14, 15, 16]
-    joint_offsets: Sequence[float] = [
+    joint_ids: List[int] = field(default_factory=lambda: [11, 12, 13, 14, 15, 16])
+    joint_offsets: List[float] = field(default_factory=lambda: [
         4 * np.pi / 2,
         2 * np.pi / 2,
         2 * np.pi / 2,
         0 * np.pi / 2,
         0 * np.pi / 2,
-        0 * np.pi / 2,
-    ]
-    joint_signs: Sequence[int] = [1, -1, 1, -1, 1, 1]
-    gripper_config: Tuple[int, int, int] = (17, 212, 170)
+        2 * np.pi / 2,
+    ])
+    joint_signs: List[int] = field(default_factory=lambda: [1, -1, 1, -1, 1, 1])
+    gripper_config: Tuple[int, int, int] = field(default_factory=lambda: (17, 212, 170))
     baudrate: int = 1_000_000
 
 @dataclass
 class XArmRobotConfig(DynamixelRobotConfig):
-    joint_ids: Sequence[int] = [1, 2, 3, 4, 5, 6, 7]
-    joint_offsets: Sequence[float] = [
+    joint_ids: List[int] = field(default_factory=lambda: [1, 2, 3, 4, 5, 6, 7])
+    joint_offsets: List[float] = field(default_factory=lambda: [
         2 * np.pi / 2,
         2 * np.pi / 2,
         2 * np.pi / 2,
@@ -71,15 +71,15 @@ class XArmRobotConfig(DynamixelRobotConfig):
         -1 * np.pi / 2 + 2 * np.pi,
         1 * np.pi / 2,
         1 * np.pi / 2,
-    ]
-    joint_signs: Sequence[int] = [1, 1, 1, 1, 1, 1, 1]
-    gripper_config: Tuple[int, int, int] = (8, 279, 279 - 50)
+    ])
+    joint_signs: List[int] = field(default_factory=lambda: [1, 1, 1, 1, 1, 1, 1])
+    gripper_config: Tuple[int, int, int] = field(default_factory=lambda: (8, 279, 279 - 50))
     baudrate: int = 57600
 
 @dataclass
 class PandaRobotConfig(DynamixelRobotConfig):
-    joint_ids: Sequence[int] = [1, 2, 3, 4, 5, 6, 7]
-    joint_offsets: Sequence[float] = [
+    joint_ids: List[int] = field(default_factory=lambda: [1, 2, 3, 4, 5, 6, 7])
+    joint_offsets: List[float] = field(default_factory=lambda: [
         3 * np.pi / 2,
         2 * np.pi / 2,
         1 * np.pi / 2,
@@ -87,39 +87,39 @@ class PandaRobotConfig(DynamixelRobotConfig):
         -2 * np.pi / 2 + 2 * np.pi,
         3 * np.pi / 2,
         4 * np.pi / 2,
-    ]
-    joint_signs: Sequence[int] = [1, -1, 1, 1, 1, -1, 1]
-    gripper_config: Tuple[int, int, int] = (8, 195, 152)
+    ])
+    joint_signs: List[int] = field(default_factory=lambda: [1, -1, 1, 1, 1, -1, 1])
+    gripper_config: Tuple[int, int, int] = field(default_factory=lambda: (8, 195, 152))
     baudrate: int = 57600
 
 @dataclass
 class URRobotConfig(DynamixelRobotConfig):
-    joint_ids: Sequence[int] = [1, 2, 3, 4, 5, 6]
-    joint_offsets: Sequence[float] = [
+    joint_ids: List[int] = field(default_factory=lambda: [1, 2, 3, 4, 5, 6])
+    joint_offsets: List[float] = field(default_factory=lambda: [
         np.pi + 0 * np.pi,
         2 * np.pi + np.pi / 2,
         2 * np.pi + np.pi / 2,
         2 * np.pi + np.pi / 2,
         1 * np.pi,
         3 * np.pi / 2,
-    ]
-    joint_signs: Sequence[int] = [1, 1, -1, 1, 1, 1]
-    gripper_config: Tuple[int, int, int] = (7, 286, 248)
+    ])
+    joint_signs: List[int] = field(default_factory=lambda: [1, 1, -1, 1, 1, 1])
+    gripper_config: Tuple[int, int, int] = field(default_factory=lambda: (7, 286, 248))
     baudrate: int = 57600
 
 @dataclass
 class URLeftRobotConfig(DynamixelRobotConfig):
-    joint_ids: Sequence[int] = [1, 2, 3, 4, 5, 6]
-    joint_offsets: Sequence[float] = [
+    joint_ids: List[int] = field(default_factory=lambda: [1, 2, 3, 4, 5, 6])
+    joint_offsets: List[float] = field(default_factory=lambda: [
         0,
         1 * np.pi / 2 + np.pi,
         np.pi / 2 + 0 * np.pi,
         0 * np.pi + np.pi / 2,
         np.pi - 2 * np.pi / 2,
         -1 * np.pi / 2 + 2 * np.pi,
-    ]
-    joint_signs: Sequence[int] = [1, 1, -1, 1, 1, 1]
-    gripper_config: Tuple[int, int, int] = (7, 20, -22)
+    ])
+    joint_signs: List[int] = field(default_factory=lambda: [1, 1, -1, 1, 1, 1])
+    gripper_config: Tuple[int, int, int] = field(default_factory=lambda: (7, 20, -22))
     baudrate: int = 57600
 
 class GelloAgent(Agent):
