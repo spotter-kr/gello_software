@@ -31,7 +31,7 @@ class Args:
     wrist_camera_port: int = 5000
     base_camera_port: int = 5001
     hostname: str = "127.0.0.1"
-    robot_type: str = None  # only needed for quest agent or spacemouse agent
+    robot_type: Optional[str] = None
     hz: int = 100
     start_joints: Optional[Tuple[float, ...]] = None
 
@@ -116,9 +116,18 @@ def main(args):
                         "No gello port found, please specify one or plug in gello"
                     )
             if args.start_joints is None:
-                reset_joints = np.deg2rad(
-                    [0, -90, 90, -90, -90, 0, 0]
-                )  # Change this to your own reset joints
+                if args.robot_type == "ur":
+                    reset_joints = np.deg2rad(
+                        [0, -90, 90, -90, -90, 0, 0]
+                    )
+                elif args.robot_type == "tm":
+                    reset_joints = np.deg2rad(
+                        [0, 0, 90, 0, 90, 0, 0]
+                    )
+                else:
+                    raise ValueError(
+                        f"Please specify start joints."
+                    )
             else:
                 reset_joints = args.start_joints
             agent = GelloAgent(port=gello_port, start_joints=args.start_joints)
