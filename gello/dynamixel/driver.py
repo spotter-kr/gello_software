@@ -229,7 +229,12 @@ class DynamixelDriver(DynamixelDriverProtocol):
                         raise RuntimeError(
                             f"Failed to get joint angles for Dynamixel with ID {dxl_id}"
                         )
+                if self._joint_angles is not None:
+                    for i, joint in enumerate(self._joint_angles):
+                        if abs(joint - _joint_angles[i]) < 2:
+                            _joint_angles[i] = joint
                 self._joint_angles = _joint_angles
+
             # self._groupSyncRead.clearParam() # TODO what does this do? should i add it
 
     def get_joints(self) -> np.ndarray:
