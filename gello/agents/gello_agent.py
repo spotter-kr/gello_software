@@ -46,7 +46,7 @@ class DynamixelRobotConfig:
         )
 
 @dataclass
-class TmRobotConfig(DynamixelRobotConfig):
+class TMRobotConfig(DynamixelRobotConfig):
     joint_ids: List[int] = field(default_factory=lambda: [11, 12, 13, 14, 15, 16])
     joint_offsets: List[float] = field(default_factory=lambda: [
         4 * np.pi / 2,
@@ -138,7 +138,7 @@ class GelloAgent(Agent):
             assert os.path.exists(port), port
             assert type in ["tm", "xarm", "panda", "ur", "ur_left"], type
             if type == 'tm':
-                config = TmRobotConfig()
+                config = TMRobotConfig()
             elif type == 'xarm':
                 config = XArmRobotConfig()
             elif type == 'panda':
